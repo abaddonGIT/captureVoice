@@ -69,7 +69,6 @@ w.onload = function () {
 
             ctx.fillStyle = '#F6D565';
             ctx.lineCap = 'round';
-            var multiplier = analyser.frequencyBinCount / Math.round(canva.width / 2);
 
             for (var i = 0; i < ln; ++i) {
                 var magnitude = 0;
