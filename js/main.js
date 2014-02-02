@@ -10,7 +10,8 @@ w.onload = function () {
             node = null,
             analyser = null,
             destination = null,
-            convolver = null; //Свертка
+            streamSelGain = null,
+            lowpassSel = null;
 
         this.init = function () {
             var audioContext = w.audioContext || w.webkitAudioContext;
@@ -20,16 +21,23 @@ w.onload = function () {
                 context = new audioContext();
                 destination = context.destination;
                 node = context.createScriptProcessor(2048, 1, 1);
-                navigator.getMedia({ audio: true }, trap.getStriam, trap.catchError);
+                //navigator.getMedia({ audio: true }, trap.getStriam, trap.catchError);
+                this.fromBuffer();
             } catch (e) {
                 throw (e.message);
             }
+        };
+        this.fromBuffer = function () {
+            var voice = context.createBufferSource();
+            trap.createAnalyser();
+            trap.strimProcessing(voice);
         };
         /*
         * перехватывает сигнал с микрофона
         */
         this.getStriam = function (striam) {
             var source = context.createMediaStreamSource(striam);
+            console.log(source);
             trap.createAnalyser();
             trap.strimProcessing(source);
         };
@@ -69,7 +77,7 @@ w.onload = function () {
 
             ctx.fillStyle = '#F6D565';
             ctx.lineCap = 'round';
-
+null
             for (var i = 0; i < ln; ++i) {
                 var magnitude = 0;
                 var loc = array[i];
@@ -80,22 +88,55 @@ w.onload = function () {
 
         this.strimProcessing = function (source) {
             var loader = new BufferLoader(context, [
-                    "effects/breath.mp3"
+                    "effects/breath.mp3",
+                    "effects/telephone.wav",
+                    "effects/test.ogg"
                 ], function (buffers) {
+                    streamSelGain = d.querySelector('#voice-gain');
+                    lowpassSel = d.querySelector('#lowpass');
+                    source.buffer = buffers[2];
+                    source.loop = true;
                     //Фоновый звук
-                    new bgSound(buffers);
-                    //подключаем анализатор к источнику
-                    source.connect(analyser);
-                    //подключаем анализатор к интерфейсу обработки данных
+                    //new bgSound(buffers);
+                    //Усилитель
+                    var streamGain = context.createGain();
+                    streamGain.gain.value = streamSelGain.value;
+                    //анализатор
                     analyser.connect(node);
+                    streamGain.connect(analyser);
+                    //свертка
+                    var convolver = context.createConvolver();
+                    convolver.buffer = buffers[1];
+
+                    streamGain.connect(convolver);
+                    //компресия
+                    var compressor = context.createDynamicsCompressor();
+                    compressor.threshold.value = -18.2;
+                    compressor.ratio.valueOf = 4.76;
+
+                    compressor.connect(streamGain);
+
+                    source.connect(compressor);
+
+                    convolver.connect(destination);
                     node.connect(destination);
-                    source.connect(destination);
+                    //source.start(0);
                     //тут отлавливаем данные для построения графика
                     node.onaudioprocess = function () {
                         var array = new Uint8Array(analyser.frequencyBinCount);
                         analyser.getByteFrequencyData(array);
                         trap.draw(array);
                     };
+
+
+
+                    streamSelGain.addEventListener('change', function () {
+                        streamGain.gain.value = this.value;
+                    }, false);
+
+                    lowpassSel.addEventListener('change', function () {
+                        lowpass.frequency.value = this.value;
+                    }, false);
                 });
             loader.load();
         }
@@ -126,6 +167,7 @@ w.onload = function () {
         bgSound.prototype.play = function () {
             this.bg = context.createBufferSource();
             this.bg.buffer = this.buffers[0];
+            //console.log(this.bg);
             //Усилитель
             this.gainNode = context.createGain();
             this.gainNode.gain.value = this.gainSel.value || 0.1;
