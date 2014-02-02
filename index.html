@@ -21,8 +21,13 @@
             </fieldset>
 
             <fieldset>
-                <legend>Фильтры</legend>
-                <input style="width: 250px" id="lowpass" type="range" name="lowpass" step="0.2" min="0" max="500" value="0"/>
+                <legend>Несущий сигнал</legend>
+                <label>Растройка<br />
+                    <input style="width: 250px" id="сarrier-detune" type="range" name="detune" step="1" min="-1200" max="1200" value="-600"/>
+                </label>
+                <label>Усилитель<br />
+                    <input style="width: 250px" id="сarrier-gain" type="range" name="сarrier-gain" step="0.1" min="0" max="2" value="0"/>
+                </label>
             </fieldset>
         </div>
     </body>

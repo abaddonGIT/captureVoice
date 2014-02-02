@@ -11,7 +11,11 @@ w.onload = function () {
             analyser = null,
             destination = null,
             streamSelGain = null,
-            lowpassSel = null;
+            carrierDetune = null,
+            сarrierGain = null,
+            ringCarrier = null,
+            ringGain = null,
+            streamGain = null;
 
         this.init = function () {
             var audioContext = w.audioContext || w.webkitAudioContext;
@@ -23,10 +27,29 @@ w.onload = function () {
                 node = context.createScriptProcessor(2048, 1, 1);
                 //navigator.getMedia({ audio: true }, trap.getStriam, trap.catchError);
                 this.fromBuffer();
+                this.addEvents();
             } catch (e) {
                 throw (e.message);
             }
         };
+        this.addEvents = function () {
+            streamSelGain = d.querySelector('#voice-gain');
+            carrierDetune = d.querySelector('#сarrier-detune');
+            сarrierGain = d.querySelector('#сarrier-gain');
+
+            streamSelGain.addEventListener('change', function () {
+                streamGain.gain.value = this.value;
+            }, false);
+
+            carrierDetune.addEventListener('change', function () {
+                ringCarrier.detune.value = this.value;
+            }, false);
+
+            сarrierGain.addEventListener('change', function () {
+                ringGain.gain.setValueAtTime(this.value, 0);
+            }, false);
+        }
+
         this.fromBuffer = function () {
             var voice = context.createBufferSource();
             trap.createAnalyser();
@@ -77,7 +100,7 @@ w.onload = function () {
 
             ctx.fillStyle = '#F6D565';
             ctx.lineCap = 'round';
-null
+            null
             for (var i = 0; i < ln; ++i) {
                 var magnitude = 0;
                 var loc = array[i];
@@ -92,14 +115,12 @@ null
                     "effects/telephone.wav",
                     "effects/test.ogg"
                 ], function (buffers) {
-                    streamSelGain = d.querySelector('#voice-gain');
-                    lowpassSel = d.querySelector('#lowpass');
                     source.buffer = buffers[2];
                     source.loop = true;
                     //Фоновый звук
                     //new bgSound(buffers);
                     //Усилитель
-                    var streamGain = context.createGain();
+                    streamGain = context.createGain();
                     streamGain.gain.value = streamSelGain.value;
                     //анализатор
                     analyser.connect(node);
@@ -118,6 +139,8 @@ null
 
                     source.connect(compressor);
 
+                    trap.ringModul(streamGain);
+
                     convolver.connect(destination);
                     node.connect(destination);
                     //source.start(0);
@@ -127,20 +150,24 @@ null
                         analyser.getByteFrequencyData(array);
                         trap.draw(array);
                     };
-
-
-
-                    streamSelGain.addEventListener('change', function () {
-                        streamGain.gain.value = this.value;
-                    }, false);
-
-                    lowpassSel.addEventListener('change', function () {
-                        lowpass.frequency.value = this.value;
-                    }, false);
                 });
             loader.load();
         }
 
+        this.ringModul = function (source) {
+            ringGain = context.createGain();
+            ringGain.gain.setValueAtTime(сarrierGain.value, 0);
+            //Несущий сигнал
+            ringCarrier = context.createOscillator();
+            ringCarrier.type = ringCarrier.SINE;
+            ringCarrier.frequency.setValueAtTime(60, 0);
+            ringCarrier.detune.value = carrierDetune.value;
+
+            ringCarrier.connect(ringGain.gain);
+            source.connect(ringGain);
+            ringGain.connect(destination);
+            ringCarrier.noteOn(0);
+        };
         /*
         * Добавляет фоновый звук
         * @param {Array} buffers - буффер
