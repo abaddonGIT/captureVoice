@@ -15,6 +15,16 @@ w.onload = function () {
             сarrierGain = null,
             ringCarrier = null,
             ringGain = null,
+            filter_50Sel = null,
+            filter_50 = null,
+            filter_75Sel = null,
+            filter_75 = null,
+            filter_560Sel = null,
+            filter_560 = null,
+            filter_2000Sel = null,
+            filter_2000 = null,
+            filter_5000Sel = null,
+            filter_5000 = null,
             streamGain = null;
 
         this.init = function () {
@@ -36,6 +46,11 @@ w.onload = function () {
             streamSelGain = d.querySelector('#voice-gain');
             carrierDetune = d.querySelector('#сarrier-detune');
             сarrierGain = d.querySelector('#сarrier-gain');
+            filter_50Sel = d.querySelector('#filter_50');
+            filter_75Sel = d.querySelector('#filter_75');
+            filter_560Sel = d.querySelector('#filter_560');
+            filter_2000Sel = d.querySelector('#filter_2000');
+            filter_5000Sel = d.querySelector('#filter_5000');
 
             streamSelGain.addEventListener('change', function () {
                 streamGain.gain.value = this.value;
@@ -47,6 +62,31 @@ w.onload = function () {
 
             сarrierGain.addEventListener('change', function () {
                 ringGain.gain.setValueAtTime(this.value, 0);
+            }, false);
+
+            filter_50Sel.addEventListener('change', function () {
+                filter_50.gain.value = this.value;
+                filter_50Sel.parentNode.querySelector('b').innerHTML = this.value;
+            }, false);
+
+            filter_75Sel.addEventListener('change', function () {
+                filter_75.gain.value = this.value;
+                filter_75Sel.parentNode.querySelector('b').innerHTML = this.value;
+            }, false);
+
+            filter_560Sel.addEventListener('change', function () {
+                filter_560.gain.value = this.value;
+                filter_560Sel.parentNode.querySelector('b').innerHTML = this.value;
+            }, false);
+
+            filter_2000Sel.addEventListener('change', function () {
+                filter_2000.gain.value = this.value;
+                filter_2000Sel.parentNode.querySelector('b').innerHTML = this.value;
+            }, false);
+
+            filter_5000Sel.addEventListener('change', function () {
+                filter_5000.gain.value = this.value;
+                filter_5000Sel.parentNode.querySelector('b').innerHTML = this.value;
             }, false);
         }
 
@@ -111,39 +151,45 @@ w.onload = function () {
 
         this.strimProcessing = function (source) {
             var loader = new BufferLoader(context, [
-                    "effects/breath.mp3",
+                    "effects/breath.ogg",
                     "effects/telephone.wav",
+                    "effects/gettysburg.ogg",
+                    "effects/reverb.wav",
                     "effects/test.ogg"
                 ], function (buffers) {
                     source.buffer = buffers[2];
-                    source.loop = true;
+                    source.loop = false;
                     //Фоновый звук
                     //new bgSound(buffers);
+                    analyser.connect(node);
                     //Усилитель
                     streamGain = context.createGain();
                     streamGain.gain.value = streamSelGain.value;
-                    //анализатор
-                    analyser.connect(node);
-                    streamGain.connect(analyser);
-                    //свертка
+                    //Свертка
                     var convolver = context.createConvolver();
-                    convolver.buffer = buffers[1];
+                    convolver.buffer = buffers[3];
 
-                    streamGain.connect(convolver);
-                    //компресия
+                    var convoGain = context.createGain();
+                    convoGain.gain.value = 1;
+                    convolver.connect(convoGain);
+                    //компрессор
                     var compressor = context.createDynamicsCompressor();
-                    compressor.threshold.value = -18.2;
-                    compressor.ratio.valueOf = 4.76;
+                    compressor.threshold.value = -48.2;
+                    compressor.ratio.value = 5;
+                    
+                    //анализатор
+                    source.connect(streamGain);
+                    streamGain.connect(analyser);
 
-                    compressor.connect(streamGain);
+                    streamGain.connect(convoGain);
+                    convoGain.connect(trap.ringModul());
+                    ringGain.connect(compressor);
+                    var out = trap.setFilters(compressor);
 
-                    source.connect(compressor);
-
-                    trap.ringModul(streamGain);
-
-                    convolver.connect(destination);
+                    out.connect(destination);
                     node.connect(destination);
-                    //source.start(0);
+                    //ringCarrier.noteOn(0);
+                    source.start(0);
                     //тут отлавливаем данные для построения графика
                     node.onaudioprocess = function () {
                         var array = new Uint8Array(analyser.frequencyBinCount);
@@ -154,19 +200,78 @@ w.onload = function () {
             loader.load();
         }
 
-        this.ringModul = function (source) {
+        this.setFilters = function (source) {
+            var filterGain = context.createGain();
+
+            filter_50 = context.createBiquadFilter();
+            filter_50.type = filter_50.HIGHSHELF;    
+            filter_50.gain.value = filter_50Sel.value;    
+            filter_50.Q.value = 1;
+            filter_50.frequency.value = 50;
+
+            filter_75 = context.createBiquadFilter();
+            filter_75.type = filter_75.HIGHSHELF;    
+            filter_75.gain.value = filter_75Sel.value;    
+            filter_75.Q.value = 1;
+            filter_75.frequency.value = 75;
+
+            filter_560= context.createBiquadFilter();
+            filter_560.type = filter_560.HIGHSHELF;    
+            filter_560.gain.value = filter_560Sel.value;    
+            filter_560.Q.value = 1;
+            filter_560.frequency.value = 560;
+
+            filter_2000 = context.createBiquadFilter();
+            filter_2000.type = filter_2000.HIGHSHELF;    
+            filter_2000.gain.value = filter_2000Sel.value;    
+            filter_2000.Q.value = 1;
+            filter_2000.frequency.value = 2000;
+
+            filter_5000 = context.createBiquadFilter();
+            filter_5000.type = filter_5000.HIGHSHELF;    
+            filter_5000.gain.value = filter_5000Sel.value;    
+            filter_5000.Q.value = 1;
+            filter_5000.frequency.value = 5000;
+
+            //нелинейное искажение
+            var ngFollower = context.createBiquadFilter();
+            ngFollower.type = ngFollower.LOWPASS;
+            ngFollower.frequency.value = 1000;
+
+            //var ngHigpass = context.createBiquadFilter();
+            //ngHigpass.type = ngHigpass.HIGHPASS;
+            //ngHigpass.frequency.value = 50;
+
+            source.connect(filter_50);
+            filter_50.connect(filter_75);
+            filter_75.connect(filter_560);
+            filter_560.connect(filter_2000);
+            filter_2000.connect(filter_5000);
+            filter_5000.connect(ngFollower);
+            //ngFollower.connect(ngHigpass);
+
+            return ngFollower;
+        };
+
+        this.ringModul = function () {
+            //Кольцевая модуляция
             ringGain = context.createGain();
             ringGain.gain.setValueAtTime(сarrierGain.value, 0);
             //Несущий сигнал
             ringCarrier = context.createOscillator();
             ringCarrier.type = ringCarrier.SINE;
-            ringCarrier.frequency.setValueAtTime(60, 0);
+            ringCarrier.frequency.setValueAtTime(40, 0);
             ringCarrier.detune.value = carrierDetune.value;
 
-            ringCarrier.connect(ringGain.gain);
-            source.connect(ringGain);
-            ringGain.connect(destination);
+             var ngHigpass = context.createBiquadFilter();
+            ngHigpass.type = ngHigpass.HIGHPASS;
+            ngHigpass.frequency.value = 75;
+
+            ringCarrier.connect(ngHigpass);
+
+            ngHigpass.connect(ringGain.gain);
             ringCarrier.noteOn(0);
+            return ringGain;
         };
         /*
         * Добавляет фоновый звук
@@ -183,7 +288,7 @@ w.onload = function () {
             setInterval(function () {
                 bg.isPlaying ? bg.stop() : bg.play();
                 bg.isPlaying = !bg.isPlaying;
-            }, 2000);
+            }, 3000);
 
             //Изменение уровня сигнала
             this.gainSel.addEventListener('change', function () {

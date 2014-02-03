@@ -23,11 +23,27 @@
             <fieldset>
                 <legend>Несущий сигнал</legend>
                 <label>Растройка<br />
-                    <input style="width: 250px" id="сarrier-detune" type="range" name="detune" step="1" min="-1200" max="1200" value="-600"/>
+                    <input style="width: 250px" id="сarrier-detune" type="range" name="detune" step="1" min="-1200" max="1200" value="800"/>
                 </label>
                 <label>Усилитель<br />
-                    <input style="width: 250px" id="сarrier-gain" type="range" name="сarrier-gain" step="0.1" min="0" max="2" value="0"/>
+                    <input style="width: 250px" id="сarrier-gain" type="range" name="сarrier-gain" step="0.1" min="-2" max="2" value="0"/>
                 </label>
+               <h3>Эквалайзер</h3>
+                    <label>50 <b>(-1)</b><br />
+                        <input style="width: 250px" id="filter_50" type="range" name="filter_50" step="0.1" min="-30" max="30" value="-1"/>
+                    </label>
+                    <label>75<br /> <b>(2)</b>
+                        <input style="width: 250px" id="filter_75" type="range" name="filter_75" step="0.1" min="-30" max="30" value="2"/>
+                    </label>
+                    <label>560<br /> <b>(2)</b>
+                        <input style="width: 250px" id="filter_560" type="range" name="filter_560" step="0.1" min="-30" max="30" value="2"/>
+                    </label>
+                    <label>2000<br /> <b>(-2)</b>
+                        <input style="width: 250px" id="filter_2000" type="range" name="filter_2000" step="0.1" min="-30" max="30" value="-2"/>
+                    </label>
+                    <label>5000<br /> <b>(1)</b>
+                        <input style="width: 250px" id="filter_5000" type="range" name="filter_5000" step="0.1" min="-30" max="30" value="1"/>
+                    </label>
             </fieldset>
         </div>
     </body>

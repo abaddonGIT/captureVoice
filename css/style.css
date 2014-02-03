@@ -31,5 +31,10 @@ body {
 
 label {
     display: block;
+    width: 250px;
     margin: 10px 0;
+}
+
+label b {
+    float: right;
 }
