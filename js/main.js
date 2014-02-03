@@ -15,6 +15,8 @@ w.onload = function () {
             сarrierGain = null,
             ringCarrier = null,
             ringGain = null,
+            filter_20Sel = null,
+            filter_20 = null,
             filter_50Sel = null,
             filter_50 = null,
             filter_75Sel = null,
@@ -46,6 +48,7 @@ w.onload = function () {
             streamSelGain = d.querySelector('#voice-gain');
             carrierDetune = d.querySelector('#сarrier-detune');
             сarrierGain = d.querySelector('#сarrier-gain');
+            filter_20Sel = d.querySelector('#filter_20');
             filter_50Sel = d.querySelector('#filter_50');
             filter_75Sel = d.querySelector('#filter_75');
             filter_560Sel = d.querySelector('#filter_560');
@@ -62,6 +65,11 @@ w.onload = function () {
 
             сarrierGain.addEventListener('change', function () {
                 ringGain.gain.setValueAtTime(this.value, 0);
+            }, false);
+
+            filter_20Sel.addEventListener('change', function () {
+                filter_20.gain.value = this.value;
+                filter_20Sel.parentNode.querySelector('b').innerHTML = this.value;
             }, false);
 
             filter_50Sel.addEventListener('change', function () {
@@ -101,7 +109,7 @@ w.onload = function () {
         this.getStriam = function (striam) {
             var source = context.createMediaStreamSource(striam);
             console.log(source);
-            trap.createAnalyser();
+            //trap.createAnalyser();
             trap.strimProcessing(source);
         };
         /*
@@ -118,7 +126,7 @@ w.onload = function () {
             el = el || d.body;
             canva = d.createElement("canvas");
             ctx = canva.getContext("2d");
-            canva.width = 600;
+            canva.width = 1000;
             canva.height = 250;
             el.appendChild(canva);
         };
@@ -189,7 +197,7 @@ w.onload = function () {
                     out.connect(destination);
                     node.connect(destination);
                     //ringCarrier.noteOn(0);
-                    source.start(0);
+                    //source.start(0);
                     //тут отлавливаем данные для построения графика
                     node.onaudioprocess = function () {
                         var array = new Uint8Array(analyser.frequencyBinCount);
@@ -202,6 +210,12 @@ w.onload = function () {
 
         this.setFilters = function (source) {
             var filterGain = context.createGain();
+
+            filter_20 = context.createBiquadFilter();
+            filter_20.type = filter_20.HIGHSHELF;    
+            filter_20.gain.value = filter_20Sel.value;    
+            filter_20.Q.value = 1;
+            filter_20.frequency.value = 20;
 
             filter_50 = context.createBiquadFilter();
             filter_50.type = filter_50.HIGHSHELF;    
@@ -231,7 +245,7 @@ w.onload = function () {
             filter_5000.type = filter_5000.HIGHSHELF;    
             filter_5000.gain.value = filter_5000Sel.value;    
             filter_5000.Q.value = 1;
-            filter_5000.frequency.value = 5000;
+            filter_5000.frequency.value = 8000;
 
             //нелинейное искажение
             var ngFollower = context.createBiquadFilter();
@@ -242,7 +256,8 @@ w.onload = function () {
             //ngHigpass.type = ngHigpass.HIGHPASS;
             //ngHigpass.frequency.value = 50;
 
-            source.connect(filter_50);
+            source.connect(filter_20);
+            filter_20.connect(filter_50);
             filter_50.connect(filter_75);
             filter_75.connect(filter_560);
             filter_560.connect(filter_2000);
