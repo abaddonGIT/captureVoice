@@ -25,6 +25,7 @@ body {
 
 fieldset {
     display: inline-block;
+    float: left;
     vertical-align: top;
     border-radius: 10px;
     border:  1px solid #ccc;

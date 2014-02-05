@@ -6,6 +6,7 @@
         <title>captionVoice</title>
         <link rel="stylesheet" type="text/css" href="css/style.css"/>
         <script type="text/javascript" src="js/main.js"></script>
+        <script type="text/javascript" src="js/test.js"></script>
     </head>
     <body>
         <div id="target"></div>
@@ -26,6 +27,21 @@
                 </label>
                 <label>Усилитель<br />
                     <input id="сarrier-gain" type="range" name="сarrier-gain" step="0.1" min="-2" max="2" value="0"/>
+                </label>
+            </fieldset>
+            <fieldset>
+                <legend>PitchShift</legend>
+                <label>
+                    Размер окна
+                    <input type="range" id="grainSize" name="grainSize" step="1" min="0" max="5" value="1"/>
+                </label>
+                <label>
+                    Коэффициент
+                    <input type="range" id="pitchShift" name="pitchShift" step="0.01" min="0.5" max="2" value="0.5"/>
+                </label>
+                <label>
+                    Перекрытие
+                    <input type="range" id="overLap" name="overLap" step="0.01" min="0" max="0.75" value="0.5"/>
                 </label>
             </fieldset>
             <fieldset>

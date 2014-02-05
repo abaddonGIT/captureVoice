@@ -27,7 +27,15 @@ w.onload = function () {
             filter_2000 = null,
             filter_5000Sel = null,
             filter_5000 = null,
-            streamGain = null;
+            streamGain = null,
+        //для pichshift
+            grainSize = null,
+            arrayGrainSizes = [256, 512, 1024, 2048, 4096, 8192],
+            currentGrainSize = arrayGrainSizes[1],
+            shiftRadio = null,
+            currentShiftRatio = 0.77,
+            overLap = null,
+            currentOverLap = 0.50;
 
         this.init = function () {
             var audioContext = w.audioContext || w.webkitAudioContext;
@@ -36,7 +44,7 @@ w.onload = function () {
                 this.createCanvas(d.querySelector("#target"));
                 context = new audioContext();
                 destination = context.destination;
-                node = context.createScriptProcessor(2048, 1, 1);
+                node = context.createScriptProcessor(512, 1, 1);
                 //navigator.getMedia({ audio: true }, trap.getStriam, trap.catchError);
                 this.fromBuffer();
                 this.addEvents();
@@ -54,11 +62,14 @@ w.onload = function () {
             filter_560Sel = d.querySelector('#filter_560');
             filter_2000Sel = d.querySelector('#filter_2000');
             filter_5000Sel = d.querySelector('#filter_5000');
-
+            grainSize = d.querySelector("#grainSize");
+            shiftRadio = d.querySelector("#pitchShift");
+            overLap = d.querySelector("#overLap");
+            //Громкость
             streamSelGain.addEventListener('change', function () {
                 streamGain.gain.value = this.value;
             }, false);
-
+            //Настройки несущего сигнала
             carrierDetune.addEventListener('change', function () {
                 ringCarrier.detune.value = this.value;
             }, false);
@@ -66,7 +77,7 @@ w.onload = function () {
             сarrierGain.addEventListener('change', function () {
                 ringGain.gain.setValueAtTime(this.value, 0);
             }, false);
-
+            //Эквалайзер
             filter_20Sel.addEventListener('change', function () {
                 filter_20.gain.value = this.value;
                 filter_20Sel.parentNode.querySelector('b').innerHTML = this.value;
@@ -96,6 +107,19 @@ w.onload = function () {
                 filter_5000.gain.value = this.value;
                 filter_5000Sel.parentNode.querySelector('b').innerHTML = this.value;
             }, false);
+            //Настройки для PitchShifting
+            grainSize.addEventListener('change', function () {
+                currentGrainSize = arrayGrainSizes[this.value];
+            });
+
+            shiftRadio.addEventListener('change', function () {
+                currentShiftRatio = this.value*1;
+                console.log(currentShiftRatio*1);
+            });
+
+            overLap.addEventListener('change', function () {
+                currentOverLap = this.value;
+            });
         }
 
         this.fromBuffer = function () {
@@ -184,7 +208,7 @@ w.onload = function () {
                     var compressor = context.createDynamicsCompressor();
                     compressor.threshold.value = -48.2;
                     compressor.ratio.value = 5;
-                    
+
                     //анализатор
                     source.connect(streamGain);
                     streamGain.connect(analyser);
@@ -197,12 +221,63 @@ w.onload = function () {
                     out.connect(destination);
                     node.connect(destination);
                     //ringCarrier.noteOn(0);
-                    //source.start(0);
+                    source.start(0);
+
+                    //console.log(node);
+
                     //тут отлавливаем данные для построения графика
-                    node.onaudioprocess = function () {
+                    node.grainWindow = trap.hannWindow(currentGrainSize);
+                    node.buffer = new Float32Array(currentGrainSize * 2);
+
+                    var k = 0;
+                    node.onaudioprocess = function (event) {
                         var array = new Uint8Array(analyser.frequencyBinCount);
+
+                        var inputData = event.inputBuffer.getChannelData(0);
+                        var outputData = event.outputBuffer.getChannelData(0);
+
+                        for (i = 0; i < inputData.length; i++) {
+
+                            // Apply the window to the input buffer
+                            inputData[i] *= this.grainWindow[i];
+
+                            // Shift half of the buffer
+                            this.buffer[i] = this.buffer[i + currentGrainSize];
+
+                            // Empty the buffer tail
+                            this.buffer[i + currentGrainSize] = 0.0;
+                        }
+                        //console.log(currentShiftRatio);
+                        // Calculate the pitch shifted grain re-sampling and looping the input
+                        var grainData = new Float32Array(currentGrainSize * 2);
+                        for (var i = 0, j = 0.0;
+                             i < currentGrainSize;
+                             i++, j += currentShiftRatio) {
+
+                            var index = Math.floor(j) % currentGrainSize;
+                            var a = inputData[index];
+                            var b = inputData[(index + 1) % currentGrainSize];
+                            grainData[i] += trap.linearInterpolation(a, b, j % 1.0) * this.grainWindow[i];
+                        }
+
+                        // Copy the grain multiple times overlapping it
+                        for (i = 0; i < currentGrainSize; i += Math.round(currentGrainSize * (1 - currentOverLap))) {
+                            for (j = 0; j <= currentGrainSize; j++) {
+                                this.buffer[i + j] += grainData[j];
+                            }
+                        }
+
+                        // Output the first half of the buffer
+                        for (i = 0; i < currentGrainSize; i++) {
+                            outputData[i] = this.buffer[i];
+                        }
+
+
+
                         analyser.getByteFrequencyData(array);
                         trap.draw(array);
+
+                        k++;
                     };
                 });
             loader.load();
@@ -212,49 +287,44 @@ w.onload = function () {
             var filterGain = context.createGain();
 
             filter_20 = context.createBiquadFilter();
-            filter_20.type = filter_20.HIGHSHELF;    
-            filter_20.gain.value = filter_20Sel.value;    
+            filter_20.type = filter_20.HIGHSHELF;
+            filter_20.gain.value = filter_20Sel.value;
             filter_20.Q.value = 1;
             filter_20.frequency.value = 20;
 
             filter_50 = context.createBiquadFilter();
-            filter_50.type = filter_50.HIGHSHELF;    
-            filter_50.gain.value = filter_50Sel.value;    
+            filter_50.type = filter_50.HIGHSHELF;
+            filter_50.gain.value = filter_50Sel.value;
             filter_50.Q.value = 1;
             filter_50.frequency.value = 50;
 
             filter_75 = context.createBiquadFilter();
-            filter_75.type = filter_75.HIGHSHELF;    
-            filter_75.gain.value = filter_75Sel.value;    
+            filter_75.type = filter_75.HIGHSHELF;
+            filter_75.gain.value = filter_75Sel.value;
             filter_75.Q.value = 1;
             filter_75.frequency.value = 75;
 
-            filter_560= context.createBiquadFilter();
-            filter_560.type = filter_560.HIGHSHELF;    
-            filter_560.gain.value = filter_560Sel.value;    
+            filter_560 = context.createBiquadFilter();
+            filter_560.type = filter_560.HIGHSHELF;
+            filter_560.gain.value = filter_560Sel.value;
             filter_560.Q.value = 1;
             filter_560.frequency.value = 560;
 
             filter_2000 = context.createBiquadFilter();
-            filter_2000.type = filter_2000.HIGHSHELF;    
-            filter_2000.gain.value = filter_2000Sel.value;    
+            filter_2000.type = filter_2000.HIGHSHELF;
+            filter_2000.gain.value = filter_2000Sel.value;
             filter_2000.Q.value = 1;
             filter_2000.frequency.value = 2000;
 
             filter_5000 = context.createBiquadFilter();
-            filter_5000.type = filter_5000.HIGHSHELF;    
-            filter_5000.gain.value = filter_5000Sel.value;    
+            filter_5000.type = filter_5000.HIGHSHELF;
+            filter_5000.gain.value = filter_5000Sel.value;
             filter_5000.Q.value = 1;
             filter_5000.frequency.value = 8000;
 
-            //нелинейное искажение
             var ngFollower = context.createBiquadFilter();
             ngFollower.type = ngFollower.LOWPASS;
             ngFollower.frequency.value = 1000;
-
-            //var ngHigpass = context.createBiquadFilter();
-            //ngHigpass.type = ngHigpass.HIGHPASS;
-            //ngHigpass.frequency.value = 50;
 
             source.connect(filter_20);
             filter_20.connect(filter_50);
@@ -278,7 +348,7 @@ w.onload = function () {
             ringCarrier.frequency.setValueAtTime(40, 0);
             ringCarrier.detune.value = carrierDetune.value;
 
-             var ngHigpass = context.createBiquadFilter();
+            var ngHigpass = context.createBiquadFilter();
             ngHigpass.type = ngHigpass.HIGHPASS;
             ngHigpass.frequency.value = 75;
 
@@ -329,6 +399,20 @@ w.onload = function () {
         bgSound.prototype.stop = function () {
             this.bg.stop(0);
         };
+    };
+
+    AudioTrap.prototype.hannWindow = function (length) {
+        var window = new Float32Array(length);
+
+        for (var i = 0; i < length; i++) {
+            window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (length - 1)));
+        }
+
+        return window;
+    };
+
+    AudioTrap.prototype.linearInterpolation = function (a, b, t) {
+        return a + (b - a) * t;
     };
     //Загрузка 
     var BufferLoader = function (context, urlList, callback) {
