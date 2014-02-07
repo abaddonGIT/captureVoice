@@ -58,16 +58,20 @@
             </fieldset>
             <fieldset>
                 <legend>Модулятор</legend>
-                <input id="voice-gain" class="vocoder-option" type="range" name="voice-gain" step="0.2" min="0" max="4" value="3"/>
+                <input id="voice-gain" class="vocoder-option" type="range" name="voice-gain" step="0.2" min="0" max="4" value="1"/>
             </fieldset>
             <fieldset id="playManagmentBlock">
                 <legend>Управление воспроизведением</legend>
-                <button id="playManagment" data-type="stop">Stop</button>
+                <button id="playManagment" data-type="play">play</button>
                 <label>Локальный файл
                     <input type="radio" class="changeSourse" name="source" checked="1" value="1"/>
                 </label>
                 <label>Срим
                     <input type="radio" class="changeSourse" name="source" value="2"/>
+                </label>
+                <label>Загрузить свой файл
+                    <input type="file" name="audioFile" />
+                    <audio controls></audio>
                 </label>
             </fieldset>
         </div>

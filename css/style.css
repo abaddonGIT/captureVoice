@@ -107,3 +107,7 @@ label b {
 input[name=source] {
     vertical-align: -3px;
 }
+
+audio {
+    display: none;
+}
