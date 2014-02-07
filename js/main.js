@@ -12,14 +12,41 @@ var Voice = (function () {
         node = null,
         dest = null,
         arrayGrainSizes = [256, 512, 1024, 2048, 4096, 8192],
+        sources = null,
+        audioEl = null,
+        locBuffer = null,
         currentGrainSize = arrayGrainSizes[1],
         loadingArray = ["effects/gettysburg.ogg", "effects/breath.ogg", "effects/reverb.wav"];
 
     var sourceGain = null,
+        startOffset = 0,
+        startTime = 0,
         ringGain = null,
         currentShiftRatio = 0.77,
         currentOverLap = 0.50,
         ringCarrier = null;
+    /*
+    * Прелодер
+    */
+    var loder = (function () {
+        var loadEl = null;
+
+        var start = function () {
+            if (!loadEl) {
+               loadEl = d.querySelector("#loading");
+            } 
+            loadEl.style.display = 'block';
+        };
+
+        var stop = function () {
+            loadEl.style.display = "none";
+        };
+
+        return {
+            start: start,
+            stop: stop
+        }
+    }());
     /*
     * Выбирается источник звучания
     */
@@ -35,7 +62,7 @@ var Voice = (function () {
             analyser.fftSize = 512;
             //Иницыализируем канву
             initCanvas.init(d.querySelector("#target"));
-            initAudio();
+            initAudio(1);
             setOptions();
             bindEvent();
         } catch (e) {
@@ -46,23 +73,32 @@ var Voice = (function () {
         //Громкость
         vocoderOptions['voice-gain']['el'].addEventListener('change', function () {
             sourceGain.gain.value = this.value;
+            vocoderOptions['voice-gain']['value'] = this.value;
         }, false);
 
         //Настройки несущего сигнала
         vocoderOptions['detune']['el'].addEventListener('change', function () {
             ringCarrier.detune.value = this.value;
+            vocoderOptions['detune']['value'] = this.value;
+            this.parentNode.querySelector('b').innerHTML = this.value;
         }, false);
 
         vocoderOptions['сarrier-gain']['el'].addEventListener('change', function () {
             ringGain.gain.setValueAtTime(this.value, 0);
+            vocoderOptions['сarrier-gain']['value'] = this.value;
+            this.parentNode.querySelector('b').innerHTML = this.value;
         }, false);
 
         //изменение тона
         vocoderOptions['pitchShift']['el'].addEventListener('change', function () {
             currentShiftRatio = this.value * 1;
+            vocoderOptions['pitchShift']['value'] = this.value;
+            this.parentNode.querySelector('b').innerHTML = this.value;
         }, false);
         vocoderOptions['overLap']['el'].addEventListener('change', function () {
             currentOverLap = this.value * 1;
+            vocoderOptions['overLap']['value'] = this.value;
+            this.parentNode.querySelector('b').innerHTML = this.value;
         }, false);
 
         //Эквалайзер
@@ -70,9 +106,49 @@ var Voice = (function () {
             filters[item]['el'].addEventListener('change', function () {
                 var name = this.name;
                 filters[name]['gain'].value = this.value;
+                filters[name]['value'] = this.value;
                 this.parentNode.querySelector('b').innerHTML = this.value;
             }, false);
         });
+
+        //Кнопки остановки и воспроизведениея
+        d.querySelector("#playManagment").addEventListener('click', function () {
+            var type = this.getAttribute('data-type');
+            switch (type) {
+                case "stop":
+                    source.stop(0);
+                    ringCarrier.noteOff(0);
+                    startOffset += context.currentTime - startTime;
+                    this.setAttribute('data-type', 'play');
+                    this.innerHTML = 'play';
+                    break;
+                case "play":
+                    initAudio(1);
+                    this.setAttribute('data-type', 'stop');
+                    this.innerHTML = 'stop';
+                    break;
+            }
+        }, false);
+
+        //Смена источника
+        var ln = sources.length;
+        while (ln--) {
+            var loc = sources[ln];
+            loc.addEventListener('change', function () {
+                var val = this.value*1,
+                    type = this.type;
+
+                switch (val) {
+                    case 1:
+                        initAudio(1);
+                        break;
+                    case 2:
+                        initAudio(2);
+                        break;
+                }
+                
+            }, false);
+        }
     };
     /*
     * Заполняем массив с опциями дефолтовыми значениями и 
@@ -81,16 +157,13 @@ var Voice = (function () {
         var optionsSel = d.querySelectorAll('input.vocoder-option'),
             ln = optionsSel.length;
 
+        sources = d.querySelectorAll('input.changeSourse');
+        audioEl = d.querySelector("audio");
+    
         //Заполняем массив дефолтовыми значениями
         while (ln--) {
             var name = optionsSel[ln].name,
                 value = optionsSel[ln].value;
-
-            vocoderOptions[name] = {
-                el: optionsSel[ln],
-                name: name,
-                value: value * 1
-            };
 
             if (name.indexOf('filter') !== -1) {
                 var fr = name.split('_');
@@ -100,6 +173,12 @@ var Voice = (function () {
                     frequency: fr[1] * 1,
                     value: value * 1
                 };
+            } else {
+                vocoderOptions[name] = {
+                    el: optionsSel[ln],
+                    name: name,
+                    value: value * 1
+                };
             }
         }
     };
@@ -107,27 +186,44 @@ var Voice = (function () {
     var initAudio = function (type, bufferSize) {
         var modular = null;
         bufferSize = bufferSize || 1;
-
+        //врубаем прелодер
+        loder.start();
         if (node) {
             node.disconnect();
+            source.disconnect();
         }
-
+        node = context.createScriptProcessor(arrayGrainSizes[bufferSize], 1, 1);
         switch (type) {
-            case 0: //загруженный файл
-
-                break;
-            case 1: //стрим
-
-                break;
-            default: //Локальный файл
-                var bufferLoader = new BufferLoader(context, loadingArray, function (buffers) {
-                    node = context.createScriptProcessor(arrayGrainSizes[bufferSize], 1, 1);
+            case 1: //Локальный файл
+                if (locBuffer) {
                     source = context.createBufferSource();
-                    source.buffer = buffers[0];
+                    source.buffer = locBuffer[0];
                     source.loop = false;
-                    var modular = new AudioModulation(buffers);
+                    var modular = new AudioModulation(locBuffer);
+                    loder.stop();
+                } else {
+                    var bufferLoader = new BufferLoader(context, loadingArray, function (buffers) {
+                        source = context.createBufferSource();
+                        source.buffer = buffers[0];
+                        source.loop = false;
+                        var modular = new AudioModulation(buffers);
+                        loder.stop();
+                        locBuffer = buffers;
+                    });
+                    bufferLoader.load();
+                }
+                break;
+            case 2: //стрим
+                //console.log(navigator.getMedia);
+                navigator.getMedia({audio: true}, function (striam) {
+                    source = context.createMediaStreamSource(striam);
+                    loder.stop();
+                    var modular = new AudioModulation(locBuffer);
+                }, function (e) {
+                    console.log (e);
+                    loder.stop();
                 });
-                bufferLoader.load();
+                break;
         }
     };
     /*
@@ -163,7 +259,8 @@ var Voice = (function () {
 
         outFilters.connect(dest);
         node.connect(dest);
-        source.start(0);
+        startTime = context.currentTime;
+        source.start(0, startOffset);
 
         node.grainWindow = this.hannWindow(currentGrainSize);
         node.buffer = new Float32Array(currentGrainSize * 2);
@@ -242,7 +339,7 @@ var Voice = (function () {
         ngHigpass.frequency.value = 10;
         ringCarrier.connect(ngHigpass);
         ngHigpass.connect(ringGain.gain);
-        ringCarrier.noteOn(0);
+        ringCarrier.noteOn(0, startOffset);
         return ringGain;
     };
     /*
