@@ -260,7 +260,7 @@ var Voice = (function () {
         outFilters.connect(dest);
         node.connect(dest);
         startTime = context.currentTime;
-        source.start(0, startOffset);
+        //source.start(0, startOffset);
 
         node.grainWindow = this.hannWindow(currentGrainSize);
         node.buffer = new Float32Array(currentGrainSize * 2);
