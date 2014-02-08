@@ -75,7 +75,7 @@ var Voice = (function () {
             setOptions();
             bindEvent();
         } catch (e) {
-            throw (e.message);
+            alert (e.message);
         }
     };
     var bindEvent = function () {
