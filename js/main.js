@@ -24,7 +24,7 @@ var Voice = (function () {
         locBuffer = null,
         currentGrainSize = arrayGrainSizes[1],
         managerBut = null,
-        loadingArray = ["effects/gettysburg.ogg", "effects/breath.ogg", "effects/reverb.wav"];
+        loadingArray = ["effects/VoiceTest-01.ogg", "effects/breath.ogg", "effects/reverb.wav"];
 
     var sourceGain = null,
         sourceType = 1,
@@ -61,7 +61,7 @@ var Voice = (function () {
     */
     var init = function () {
         try {
-            var audioContext = w.audioContext || w.webkitAudioContext;
+            var audioContext = w.AudioContext || w.webkitAudioContext;
             navigator.getMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
             context = new audioContext();
             dest = context.destination;
@@ -75,7 +75,7 @@ var Voice = (function () {
             setOptions();
             bindEvent();
         } catch (e) {
-            alert (e.message);
+            alert(e.message);
         }
     };
     var bindEvent = function () {
@@ -87,7 +87,8 @@ var Voice = (function () {
         stopBut = function () {
             managerBut.setAttribute('data-type', 'stop');
             managerBut.innerHTML = 'stop';
-            managerBut.setAttribute('disabled');
+            managerBut.disabled = true;
+            //managerBut.setAttribute('disabled');
         }
         //Громкость
         vocoderOptions['voice-gain']['el'].addEventListener('change', function () {
@@ -138,7 +139,7 @@ var Voice = (function () {
                 case "stop":
                     if (sourceType === 1) {
                         source[sourceType].stop(0);
-                        ringCarrier.noteOff(0);
+                        ringCarrier.stop(0);
                         startOffset += context.currentTime - startTime;
                     }
                     if (sourceType === 3) {
@@ -191,7 +192,7 @@ var Voice = (function () {
         //подгрузка внешнего файла
         filePut.addEventListener('change', function () {
             var fReader = new FileReader();
-            managerBut.setAttribute('disabled');
+            managerBut.disabled = true;
             fReader.readAsDataURL(this.files[0]);
             fReader.onloadend = function (event) {
                 var e = event || w.event;
@@ -332,8 +333,6 @@ var Voice = (function () {
         node.grainWindow = this.hannWindow(currentGrainSize);
         node.buffer = new Float32Array(currentGrainSize * 2);
 
-        var k = 0;
-
         node.onaudioprocess = function (event) {
             var array = new Uint8Array(analyser.frequencyBinCount);
 
@@ -342,18 +341,10 @@ var Voice = (function () {
                 ln = input.length;
 
             for (i = 0; i < ln; i++) {
-
-                // Apply the window to the input buffer
                 input[i] *= this.grainWindow[i];
-
-                // Shift half of the buffer
                 this.buffer[i] = this.buffer[i + currentGrainSize];
-
-                // Empty the buffer tail
                 this.buffer[i + currentGrainSize] = 0.0;
             }
-
-            // Calculate the pitch shifted grain re-sampling and looping the input
             var grainData = new Float32Array(currentGrainSize * 2);
             for (var i = 0, j = 0.0; i < currentGrainSize; i++, j += currentShiftRatio) {
                 var index = Math.floor(j) % currentGrainSize;
@@ -362,21 +353,19 @@ var Voice = (function () {
                 grainData[i] += am.linearInterpolation(a, b, j % 1.0) * this.grainWindow[i];
             }
 
-            // Copy the grain multiple times overlapping it
             for (i = 0; i < currentGrainSize; i += Math.round(currentGrainSize * (1 - currentOverLap))) {
                 for (j = 0; j <= currentGrainSize; j++) {
                     this.buffer[i + j] += grainData[j];
                 }
             }
 
-            // Output the first half of the buffer
+            //возвращает первую половину из буффера
             for (i = 0; i < currentGrainSize; i++) {
                 output[i] = this.buffer[i];
             }
 
             analyser.getByteFrequencyData(array);
             initCanvas.draw(array);
-            k++;
         }
     };
     AudioModulation.prototype.hannWindow = function (length) {
@@ -406,7 +395,7 @@ var Voice = (function () {
         ngHigpass.frequency.value = 10;
         ringCarrier.connect(ngHigpass);
         ngHigpass.connect(ringGain.gain);
-        ringCarrier.noteOn(0, startOffset);
+        ringCarrier.start(0, startOffset);
         return ringGain;
     };
     /*
