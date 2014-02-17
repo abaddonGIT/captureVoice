@@ -21,8 +21,9 @@ var BufferLoader = function (context, urlList, callback) {
         var loader = this;
 
         request.onload = function () {
+            var data = request.response;
             loader.context.decodeAudioData(
-                request.response,
+                data,
                 function (buffer) {
                     if (!buffer) {
                         alert('error decoding file data: ' + url);
